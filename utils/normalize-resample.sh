@@ -1,3 +1,5 @@
+#!/bin/bash/
+
 # copy this to root directory of data and ./normalize-resample.sh
 # https://unix.stackexchange.com/questions/103920/parallelize-a-bash-for-loop
 
@@ -19,8 +21,11 @@ run_with_lock(){
     )&
 }
 
-N=32 # set "N" as your CPU core number.
+N=16 # set "N" as your CPU core number.
 open_sem $N
-for f in $(find . -name "*.flac"); do
-    run_with_lock ffmpeg-normalize "$f" -ar 16000 -o "${f%.*}-norm.wav"
+#for f in $(find /home/nas/DB/LibriSpeech-SLR12/train-clean-360 -name "*.flac"); do
+for f in $(find /home/nas/DB/LibriSpeech-SLR12/dev-clean -name "*.flac"); do
+  output=/home/nas/user/kbh/Librispeech/norm/dev/$(echo $f | cut -sd / -f9-)
+    #run_with_lock ffmpeg-normalize "$f" -ar 16000 -o "/home/nas/user/kbh/Librispeech${f%.*}-norm.wav"
+    run_with_lock ffmpeg-normalize "$f" -ar 16000 -o "${output%.*}-norm.wav"
 done

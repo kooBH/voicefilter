@@ -13,6 +13,10 @@ from model.embedder import SpeechEmbedder
 
 def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp, hp_str):
     # load embedder
+
+    torch.cuda.set_device("cuda:1")
+    print(torch.cuda.current_device())
+
     embedder_pt = torch.load(args.embedder_path)
     embedder = SpeechEmbedder(hp).cuda()
     embedder.load_state_dict(embedder_pt)
@@ -20,6 +24,15 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
 
     audio = Audio(hp)
     model = VoiceFilter(hp).cuda()
+
+### Multi-GPU
+#    model = VoiceFilter(hp)
+#    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#    model = nn.DataParallel(model)
+#    model.to(device)
+
+
+
     if hp.train.optimizer == 'adabound':
         optimizer = AdaBound(model.parameters(),
                              lr=hp.train.adabound.initial,
@@ -29,6 +42,9 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
                                      lr=hp.train.adam)
     else:
         raise Exception("%s optimizer not supported" % hp.train.optimizer)
+
+    #scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=hp.scheduler.oneCycle.max_lr, total_steps=hp.scheduler.oneCycle.total_steps)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode=hp.scheduler.Plateau.mode)
 
     step = 0
 
@@ -47,7 +63,7 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
 
     try:
         criterion = nn.MSELoss()
-        while True:
+        for i_epoch in range(hp.train.epoch):
             model.train()
             for dvec_mels, target_mag, mixed_mag in trainloader:
                 target_mag = target_mag.cuda()
@@ -70,7 +86,8 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
 
                 optimizer.zero_grad()
                 loss.backward()
-                optimizer.step()
+                #optimizer.step()
+                scheduler.step(loss)
                 step += 1
 
                 loss = loss.item()
@@ -81,20 +98,26 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
                 # write loss to tensorboard
                 if step % hp.train.summary_interval == 0:
                     writer.log_training(loss, step)
-                    logger.info("Wrote summary at step %d" % step)
+                    logger.info("Wrote summary at step %d in epoch %d" % (step, i_epoch))
+
+                if step % hp.train.validation_interval == 0:
+                    validate(audio, model, embedder, testloader, writer, step)
 
                 # 1. save checkpoint file to resume training
                 # 2. evaluate and save sample to tensorboard
                 if step % hp.train.checkpoint_interval == 0:
                     save_path = os.path.join(pt_dir, 'chkpt_%d.pt' % step)
+                    #save_dict_path = os.path.join(pt_dir, 'chkpt_%d_dict.pt' % step)
                     torch.save({
                         'model': model.state_dict(),
                         'optimizer': optimizer.state_dict(),
                         'step': step,
                         'hp_str': hp_str,
                     }, save_path)
+
+                    #torch.save(model.module.state_dict() , save_dict_path)
+
                     logger.info("Saved checkpoint to: %s" % save_path)
-                    validate(audio, model, embedder, testloader, writer, step)
     except Exception as e:
         logger.info("Exiting due to exception: %s" % e)
         traceback.print_exc()

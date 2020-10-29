@@ -77,6 +77,9 @@ class VoiceFilter(nn.Module):
         # dvec: [B, T, emb_dim]
 
         x = torch.cat((x, dvec), dim=2) # [B, T, 8*num_freq + emb_dim]
+        
+        ## for data parallel
+        # self.lstm.flatten_parameters()
 
         x, _ = self.lstm(x) # [B, T, 2*lstm_dim]
         x = F.relu(x)

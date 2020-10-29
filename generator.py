@@ -107,6 +107,7 @@ if __name__ == '__main__':
         raise Exception("Please provide directory of data")
 
     if args.libri_dir is not None:
+        """
         train_folders = [x for x in glob.glob(os.path.join(args.libri_dir, 'train-clean-100', '*'))
                             if os.path.isdir(x)] + \
                         [x for x in glob.glob(os.path.join(args.libri_dir, 'train-clean-360', '*'))
@@ -115,6 +116,7 @@ if __name__ == '__main__':
                         # See https://github.com/mindslab-ai/voicefilter/issues/5#issuecomment-497746793
                         # + \
                         #[x for x in glob.glob(os.path.join(args.libri_dir, 'train-other-500', '*'))
+                        """
                         #    if os.path.isdir(x)]
         test_folders = [x for x in glob.glob(os.path.join(args.libri_dir, 'dev-clean', '*'))]
 
@@ -124,15 +126,17 @@ if __name__ == '__main__':
         train_folders = all_folders[:-20]
         test_folders = all_folders[-20:]
 
-    train_spk = [glob.glob(os.path.join(spk, '**', hp.form.input), recursive=True)
-                    for spk in train_folders]
-    train_spk = [x for x in train_spk if len(x) >= 2]
-
     test_spk = [glob.glob(os.path.join(spk, '**', hp.form.input), recursive=True)
                     for spk in test_folders]
     test_spk = [x for x in test_spk if len(x) >= 2]
 
     audio = Audio(hp)
+
+#    train_spk = [glob.glob(os.path.join(spk, '**', hp.form.input), recursive=True)
+#                    for spk in train_folders]
+#    train_spk = [x for x in train_spk if len(x) >= 2]
+
+
 
     def train_wrapper(num):
         spk1, spk2 = random.sample(train_spk, 2)
@@ -146,10 +150,10 @@ if __name__ == '__main__':
         s2 = random.choice(spk2)
         mix(hp, args, audio, num, s1_dvec, s1_target, s2, train=False)
 
-    arr = list(range(10**5))
-    with Pool(cpu_num) as p:
-        r = list(tqdm.tqdm(p.imap(train_wrapper, arr), total=len(arr)))
+#    arr = list(range(10**5))
+#    with Pool(cpu_num) as p:
+#        r = list(tqdm.tqdm(p.imap(train_wrapper, arr), total=len(arr)))
 
-    arr = list(range(10**2))
+    arr = list(range(10**3))
     with Pool(cpu_num) as p:
         r = list(tqdm.tqdm(p.imap(test_wrapper, arr), total=len(arr)))
