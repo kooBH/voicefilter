@@ -43,11 +43,13 @@ train:
   checkpoint_interval: 1000
 ---
 scheduler:
-  type: 'oneCycle'
+  type: 'Plateau'
   oneCycle:
     max_lr: 0.001
   Plateau:
     mode: 'min'
+    patience: 2
+    factor: 0.5
 
 
 ---

@@ -33,5 +33,5 @@ def validate(audio, model, embedder, testloader, writer, step):
                                   mixed_mag.T, target_mag.T, est_mag.T, est_mask.T,
                                   step)
             break
-
     model.train()
+    return test_loss

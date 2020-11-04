@@ -42,9 +42,10 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
                                      lr=hp.train.adam)
     else:
         raise Exception("%s optimizer not supported" % hp.train.optimizer)
-
-    #scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=hp.scheduler.oneCycle.max_lr, total_steps=hp.scheduler.oneCycle.total_steps)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode=hp.scheduler.Plateau.mode)
+    if hp.scheduler.type =='oneCycle' :
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=hp.scheduler.oneCycle.max_lr, epochs=hp.train.epoch,steps_per_epoch=len(trainloader))
+    elif hp.scheduler.type == 'Plateau' : 
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode=hp.scheduler.Plateau.mode, patience=hp.scheduler.Plateau.patience, factor = hp.scheduler.Plateau.factor,verbose=True)
 
     step = 0
 
@@ -53,6 +54,10 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
         checkpoint = torch.load(chkpt_path)
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+
+        # for oneCycleLR
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=hp.scheduler.oneCycle.max_lr, epochs=hp.train.epoch,steps_per_epoch=len(trainloader))
+
         step = checkpoint['step']
 
         # will use new given hparams.
@@ -86,8 +91,13 @@ def train(args, pt_dir, chkpt_path, trainloader, testloader, writer, logger, hp,
 
                 optimizer.zero_grad()
                 loss.backward()
-                #optimizer.step()
-                scheduler.step(loss)
+                optimizer.step()
+
+                if hp.scheduler.type =='oneCycle' :
+                    scheduler.step()
+                elif hp.scheduler.type =='Plateau' :
+                    scheduler.step(loss)
+
                 step += 1
 
                 loss = loss.item()
